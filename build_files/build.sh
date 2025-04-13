@@ -31,7 +31,7 @@ cd /tmp
 
 rpmdev-setuptree
 
-git clone https://github.com/BrickMan240/tuxedo-drivers-kmod
+git clone https://github.com/tobehn/tuxedo-drivers-kmod
 
 cd tuxedo-drivers-kmod/
 ./build.sh
