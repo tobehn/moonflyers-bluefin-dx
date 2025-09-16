@@ -13,6 +13,7 @@ RELEASE="$(rpm -E %fedora)"
 
 # this installs a package from fedora repos
 dnf5 install -y tmux
+dnf5 install -y logiops
 rpm-ostree install screen
 
 #Exec perms for symlink script
@@ -84,4 +85,5 @@ systemctl enable tccd-sleep.service
 
 #### Example for enabling a System Unit File
 
+systemctl enable logid.service
 systemctl enable podman.socket
