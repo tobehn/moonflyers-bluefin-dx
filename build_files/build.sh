@@ -23,33 +23,29 @@ systemctl enable /etc/systemd/system/fixtuxedo.service
 
 #Handle the logiops installation
 
-# ---- LogiOps Override mit Build-ARG USERNAME ----
-: "${USERNAME:?USERNAME not set}"
+# ---- LogiOps Override nur, wenn USERNAME gesetzt ist ----
+if [ -n "${USERNAME:-}" ]; then
+  install -d -m 755 "/var/${USERNAME}/.config/logiops"
+  : > "/var/${USERNAME}/.config/logiops/logid.cfg"
 
-# Verzeichnis & Dummy-Config (root liest das problemlos)
-install -d -m 755 "/var/${USERNAME}/.config/logiops"
-touch "/var/${USERNAME}/.config/logiops/logid.cfg"
-# optional minimaler Inhalt:
-# echo '{}' > "/var/${USERNAME}/.config/logiops/logid.cfg"
-
-# systemd-Override anlegen (liest aus /var/${USERNAME}/...)
-install -d /usr/lib/systemd/system/logid.service.d
-cat > /usr/lib/systemd/system/logid.service.d/override.conf <<EOF
+  install -d /usr/lib/systemd/system/logid.service.d
+  cat > /usr/lib/systemd/system/logid.service.d/override.conf <<EOF
 [Service]
 ExecStart=
 ExecStart=/usr/bin/logid -c /var/${USERNAME}/.config/logiops/logid.cfg
 EOF
 
-# tmpfiles-Regel: setzt Owner/Mode beim Boot (wenn User existiert)
-cat > /usr/lib/tmpfiles.d/logiops.conf <<EOF
+  cat > /usr/lib/tmpfiles.d/logiops.conf <<EOF
 d /var/${USERNAME} 0755 ${USERNAME} ${USERNAME} -
 d /var/${USERNAME}/.config 0755 ${USERNAME} ${USERNAME} -
 d /var/${USERNAME}/.config/logiops 0755 ${USERNAME} ${USERNAME} -
 f /var/${USERNAME}/.config/logiops/logid.cfg 0644 ${USERNAME} ${USERNAME} -
 EOF
 
-# Service aktivieren
-systemctl enable logid.service
+  systemctl enable logid.service
+else
+  echo "NOTE: Skip LogiOps override (USERNAME not set; PR ohne Secrets?)."
+fi
 
 
 #Build and install tuxedo drivers
