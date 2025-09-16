@@ -1,13 +1,15 @@
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
+
+# Build-Arg aus GH Actions + ins RUN-Env heben
+ARG LOGID_USERNAME
+ENV USERNAME=${LOGID_USERNAME}
+
+#Copy build file
 COPY build_files /
 
 # Base Image
 #FROM ghcr.io/ublue-os/bazzite:stable
-
-# ---- Build-ARG deklarieren ----
-ARG USERNAME
-ENV USERNAME=${USERNAME}
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
