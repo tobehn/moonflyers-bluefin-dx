@@ -5,6 +5,9 @@ COPY build_files /
 # Base Image
 #FROM ghcr.io/ublue-os/bazzite:stable
 
+# ---- Build-ARG deklarieren ----
+ARG USERNAME
+
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
 # FROM ghcr.io/ublue-os/bluefin-nvidia:stable
@@ -27,7 +30,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh && \
+    USERNAME=$USERNAME /ctx/build.sh && \
     ostree container commit
     
 ### LINTING
