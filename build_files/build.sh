@@ -14,6 +14,7 @@ RELEASE="$(rpm -E %fedora)"
 # this installs a package from fedora repos
 dnf5 install -y tmux
 dnf5 install -y logiops
+dnf5 install -y spacenavd
 rpm-ostree install screen
 
 #Exec perms for symlink script
