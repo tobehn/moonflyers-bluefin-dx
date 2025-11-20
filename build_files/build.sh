@@ -1,30 +1,21 @@
 #!/bin/bash
-
 set -ouex pipefail
 
 RELEASE="$(rpm -E %fedora)"
 
-### Install packages
+### Basis-Pakete
 
-# Packages can be installed from any enabled yum repo on the image.
-# RPMfusion repos are available by default in ublue main images
-# List of rpmfusion packages can be found here:
-# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/39/x86_64/repoview/index.html&protocol=https&redirect=1
-
-# this installs a package from fedora repos
 dnf5 install -y tmux
 dnf5 install -y logiops
 dnf5 install -y spacenavd
 rpm-ostree install screen
 
-#Exec perms for symlink script
+# Exec perms for symlink script
 chmod +x /usr/bin/fixtuxedo
-#And autorun
 systemctl enable /etc/systemd/system/fixtuxedo.service
 
-#Handle the logiops installation
+### LogiOps-Override nur, wenn USERNAME gesetzt ist
 
-# ---- LogiOps Override nur, wenn USERNAME gesetzt ist ----
 if [ -n "${USERNAME:-}" ]; then
   install -d -m 755 "/var/home/${USERNAME}/.config/logiops"
   : > "/var/home/${USERNAME}/.config/logiops/logid.cfg"
@@ -48,22 +39,17 @@ else
   echo "NOTE: Skip LogiOps override (USERNAME not set; PR ohne Secrets?)."
 fi
 
+### Tuxedo-Treiber bauen (als nicht-root User) und installieren
 
-#Build and install tuxedo drivers
-rpm-ostree install rpm-build
-rpm-ostree install rpmdevtools
-rpm-ostree install kmodtool
+rpm-ostree install rpm-build rpmdevtools kmodtool
 
-
-# Run the tuxedo driver build as a non-root user (akmods requires this).
-BUILD_USER="${USERNAME:-builder}"
+BUILD_USER="builder"
 BUILD_HOME="/var/home/${BUILD_USER}"
 
 if ! id -u "$BUILD_USER" >/dev/null 2>&1; then
-    useradd -m -d "$BUILD_HOME" -s /bin/bash "$BUILD_USER"
+  useradd -m -d "$BUILD_HOME" -s /bin/bash "$BUILD_USER"
 fi
 
-# Ensure ownership of the home dir
 mkdir -p "$BUILD_HOME"
 chown -R "$BUILD_USER":"$BUILD_USER" "$BUILD_HOME"
 
@@ -73,55 +59,40 @@ set -euo pipefail
 rpmdev-setuptree
 cd "$HOME"
 
-# Repo ggf. neu holen
 rm -rf tuxedo-drivers-kmod
 git clone https://github.com/tobehn/tuxedo-drivers-kmod
 cd tuxedo-drivers-kmod
 
-echo "=== Patch tuxedo-drivers-kmod.spec: remove akmod dependency ==="
-# Alle Zeilen, in denen akmod-tuxedo-drivers vorkommt, löschen
-sed -i "/akmod-tuxedo-drivers/d" tuxedo-drivers-kmod.spec
-
-echo "=== Check spec for akmod-tuxedo-drivers after patch ==="
-grep -n "akmod-tuxedo-drivers" tuxedo-drivers-kmod.spec || echo "OK: no akmod-tuxedo-drivers in spec"
-
 echo "=== Build RPMs ==="
 ./build.sh
 
-echo "=== List built RPMs ==="
-find ~/rpmbuild/RPMS/ -type f -maxdepth 1 || true
-
-echo "=== Check kmod RPM requires for akmod ==="
-rpm -qp --requires ~/rpmbuild/RPMS/x86_64/kmod-tuxedo-drivers-*.rpm | grep -i akmod || echo "OK: no akmod dependency in kmod RPM"
+echo "=== Built RPMs ==="
+find "$HOME/rpmbuild/RPMS" -type f
 '
 
-# Extract the Version value from the spec file (read from the build user's tree)
-export TD_VERSION=$(grep -E "^Version:" "$BUILD_HOME/tuxedo-drivers-kmod/tuxedo-drivers-kmod-common.spec" | awk "{print \$2}")
+# Nur Nicht-akmod-RPMs installieren
+rpm_files=()
+shopt -s nullglob
+for rpm in "${BUILD_HOME}/rpmbuild/RPMS/x86_64/"*.rpm; do
+  case "$(basename "$rpm")" in
+    akmod-*|*akmod-*)
+      echo "Skipping akmod package $rpm"
+      ;;
+    *)
+      rpm_files+=("$rpm")
+      ;;
+  esac
+done
 
- # Install produced RPMs but skip akmod packages because akmods' postinstall
- # tries to build as root which fails inside the container/build environment.
- rpm_files=()
- shopt -s nullglob
- for rpm in "${BUILD_HOME}/rpmbuild/RPMS/x86_64/"*.rpm; do
-   case "$(basename "$rpm")" in
-     akmod-*|*akmod-*)
-       echo "Skipping akmod package $rpm"
-       continue
-       ;;
-     *)
-       rpm_files+=("$rpm")
-       ;;
-   esac
- done
- if [ ${#rpm_files[@]} -eq 0 ]; then
-   echo "No RPMs to install after filtering akmod packages" >&2
-   exit 1
- fi
- rpm-ostree install "${rpm_files[@]}"
+if [ ${#rpm_files[@]} -eq 0 ]; then
+  echo "No RPMs to install after filtering akmod packages" >&2
+  exit 1
+fi
 
-# ...existing code...
+rpm-ostree install "${rpm_files[@]}"
 
-#Hacky workaround to make TCC install elsewhere
+### Tuxedo Control Center „/opt“-Workaround
+
 mkdir -p /usr/share
 rm /opt
 ln -s /usr/share /opt
@@ -140,18 +111,6 @@ sed -i 's|/opt|/usr/share|g' /etc/systemd/system/tccd.service
 sed -i 's|/opt|/usr/share|g' /usr/share/applications/tuxedo-control-center.desktop
 
 systemctl enable tccd.service
-
 systemctl enable tccd-sleep.service
 
-# Use a COPR Example:
-#
-# dnf5 -y copr enable ublue-os/staging
-# dnf5 -y install package
-# Disable COPRs so they don't end up enabled on the final image:
-# dnf5 -y copr disable ublue-os/staging
-
-# this would install a package from rpmfusion
-# rpm-ostree install vlc
-
-#### Example for enabling a System Unit File
 systemctl enable podman.socket
