@@ -74,6 +74,14 @@ rpmdev-setuptree
 cd "$HOME"
 git clone https://github.com/tobehn/tuxedo-drivers-kmod
 cd tuxedo-drivers-kmod
+
+# 1) akmod-Require aus dem kmod-Spec entfernen
+sed -i "/^Requires:.*akmod-tuxedo-drivers.*/d" tuxedo-drivers-kmod.spec
+
+# ggf. 2) falls im %post akmods aufgerufen wird, diesen Block ausknipsen:
+# (grob, aber effektiv – kann man später hübscher machen)
+# sed -i "/^%post/,/^%postun/ s/^/#/" tuxedo-drivers-kmod.spec
+
 ./build.sh
 find ~/rpmbuild/RPMS/ -type f
 '
