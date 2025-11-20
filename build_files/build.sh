@@ -56,19 +56,31 @@ rpm-ostree install kmodtool
 
 export HOME=/tmp
 
-cd /tmp
+# Run the tuxedo driver build as a non-root user (akmods requires this).
+BUILD_USER="${USERNAME:-builder}"
+BUILD_HOME="/var/home/${BUILD_USER}"
 
+if ! id -u "$BUILD_USER" >/dev/null 2>&1; then
+    useradd -m -d "$BUILD_HOME" -s /bin/bash "$BUILD_USER"
+fi
+
+# Ensure ownership of the home dir
+mkdir -p "$BUILD_HOME"
+chown -R "$BUILD_USER":"$BUILD_USER" "$BUILD_HOME"
+
+# Run rpmdev-setuptree and the upstream build as the non-root user
+su - "$BUILD_USER" -c '
+set -euo pipefail
 rpmdev-setuptree
-
+cd "$HOME"
 git clone https://github.com/tobehn/tuxedo-drivers-kmod
-
-cd tuxedo-drivers-kmod/
+cd tuxedo-drivers-kmod
 ./build.sh
 find ~/rpmbuild/RPMS/ -type f
-cd ..
+'
 
-# Extract the Version value from the spec file
-export TD_VERSION=$(cat tuxedo-drivers-kmod/tuxedo-drivers-kmod-common.spec | grep -E '^Version:' | awk '{print $2}')
+# Extract the Version value from the spec file (read from the build user's tree)
+export TD_VERSION=$(grep -E "^Version:" "$BUILD_HOME/tuxedo-drivers-kmod/tuxedo-drivers-kmod-common.spec" | awk "{print \$2}")
 
 
 #rpm-ostree install ~/rpmbuild/RPMS/x86_64/akmod-tuxedo-drivers-$TD_VERSION-1.fc41.x86_64.rpm ~/rpmbuild/RPMS/x86_64/tuxedo-drivers-kmod-$TD_VERSION-1.fc41.x86_64.rpm ~/rpmbuild/RPMS/x86_64/tuxedo-drivers-kmod-common-$TD_VERSION-1.fc41.x86_64.rpm ~/rpmbuild/RPMS/x86_64/kmod-tuxedo-drivers-$TD_VERSION-1.fc41.x86_64.rpm
