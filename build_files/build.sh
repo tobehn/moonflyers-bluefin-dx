@@ -75,9 +75,9 @@ export TD_VERSION=$(cat tuxedo-drivers-kmod/tuxedo-drivers-kmod-common.spec | gr
 
 rpm-ostree install ~/rpmbuild/RPMS/x86_64/*.rpm
 
-KERNEL_VERSION="$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')"
+#KERNEL_VERSION="$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')"
 
-akmods --force --kernels "${KERNEL_VERSION}" --kmod "tuxedo-drivers-kmod"
+#akmods --force --kernels "${KERNEL_VERSION}" --kmod "tuxedo-drivers-kmod"
 
 #Hacky workaround to make TCC install elsewhere
 mkdir -p /usr/share
