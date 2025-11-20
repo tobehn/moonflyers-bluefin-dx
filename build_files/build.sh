@@ -67,23 +67,32 @@ fi
 mkdir -p "$BUILD_HOME"
 chown -R "$BUILD_USER":"$BUILD_USER" "$BUILD_HOME"
 
-# Run rpmdev-setuptree and the upstream build as the non-root user
 su - "$BUILD_USER" -c '
 set -euo pipefail
+
 rpmdev-setuptree
 cd "$HOME"
+
+# Repo ggf. neu holen
+rm -rf tuxedo-drivers-kmod
 git clone https://github.com/tobehn/tuxedo-drivers-kmod
 cd tuxedo-drivers-kmod
 
-# 1) akmod-Require aus dem kmod-Spec entfernen
-sed -i "/^Requires:.*akmod-tuxedo-drivers.*/d" tuxedo-drivers-kmod.spec
+echo "=== Patch tuxedo-drivers-kmod.spec: remove akmod dependency ==="
+# Alle Zeilen, in denen akmod-tuxedo-drivers vorkommt, löschen
+sed -i "/akmod-tuxedo-drivers/d" tuxedo-drivers-kmod.spec
 
-# ggf. 2) falls im %post akmods aufgerufen wird, diesen Block ausknipsen:
-# (grob, aber effektiv – kann man später hübscher machen)
-# sed -i "/^%post/,/^%postun/ s/^/#/" tuxedo-drivers-kmod.spec
+echo "=== Check spec for akmod-tuxedo-drivers after patch ==="
+grep -n "akmod-tuxedo-drivers" tuxedo-drivers-kmod.spec || echo "OK: no akmod-tuxedo-drivers in spec"
 
+echo "=== Build RPMs ==="
 ./build.sh
-find ~/rpmbuild/RPMS/ -type f
+
+echo "=== List built RPMs ==="
+find ~/rpmbuild/RPMS/ -type f -maxdepth 1 || true
+
+echo "=== Check kmod RPM requires for akmod ==="
+rpm -qp --requires ~/rpmbuild/RPMS/x86_64/kmod-tuxedo-drivers-*.rpm | grep -i akmod || echo "OK: no akmod dependency in kmod RPM"
 '
 
 # Extract the Version value from the spec file (read from the build user's tree)
