@@ -81,8 +81,28 @@ find ~/rpmbuild/RPMS/ -type f
 # Extract the Version value from the spec file (read from the build user's tree)
 export TD_VERSION=$(grep -E "^Version:" "$BUILD_HOME/tuxedo-drivers-kmod/tuxedo-drivers-kmod-common.spec" | awk "{print \$2}")
 
-# Install the RPMs produced in the build user's rpmbuild tree
-rpm-ostree install "${BUILD_HOME}/rpmbuild/RPMS/x86_64/"*.rpm
+ # Install produced RPMs but skip akmod packages because akmods' postinstall
+ # tries to build as root which fails inside the container/build environment.
+ rpm_files=()
+ shopt -s nullglob
+ for rpm in "${BUILD_HOME}/rpmbuild/RPMS/x86_64/"*.rpm; do
+   case "$(basename "$rpm")" in
+     akmod-*|*akmod-*)
+       echo "Skipping akmod package $rpm"
+       continue
+       ;;
+     *)
+       rpm_files+=("$rpm")
+       ;;
+   esac
+ done
+ if [ ${#rpm_files[@]} -eq 0 ]; then
+   echo "No RPMs to install after filtering akmod packages" >&2
+   exit 1
+ fi
+ rpm-ostree install "${rpm_files[@]}"
+
+# ...existing code...
 
 #Hacky workaround to make TCC install elsewhere
 mkdir -p /usr/share
