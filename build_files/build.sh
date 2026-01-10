@@ -44,6 +44,10 @@ fi
 ### Kernel-Header für kmod-Build installieren
 dnf5 install -y kernel-devel
 
+# Kernel-Version aus installiertem kernel-devel ermitteln (nicht uname -r, das ist der Host-Kernel)
+KVER=$(rpm -q kernel-devel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
+echo "Building for kernel: $KVER"
+
 rpm-ostree install rpm-build rpmdevtools kmodtool
 
 BUILD_USER="builder"
@@ -56,22 +60,22 @@ fi
 mkdir -p "$BUILD_HOME"
 chown -R "$BUILD_USER":"$BUILD_USER" "$BUILD_HOME"
 
-su - "$BUILD_USER" -c '
+su - "$BUILD_USER" -c "
 set -euo pipefail
 
 rpmdev-setuptree
-cd "$HOME"
+cd \"\$HOME\"
 
 rm -rf tuxedo-drivers-kmod
 git clone https://github.com/tobehn/tuxedo-drivers-kmod
 cd tuxedo-drivers-kmod
 
-echo "=== Build RPMs ==="
-./build.sh
+echo '=== Build RPMs for kernel: $KVER ==='
+./build.sh '$KVER'
 
-echo "=== Built RPMs ==="
-find "$HOME/rpmbuild/RPMS" -type f
-'
+echo '=== Built RPMs ==='
+find \"\$HOME/rpmbuild/RPMS\" -type f
+"
 
 # Nur Nicht-akmod-RPMs installieren
 rpm_files=()
