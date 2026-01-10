@@ -91,7 +91,7 @@ git clone https://github.com/tobehn/tuxedo-drivers-kmod
 cd tuxedo-drivers-kmod
 
 echo '=== Build RPMs for kernel: $KVER ==='
-./build.sh '$KVER'
+./build.sh \"$KVER\"
 
 echo '=== Built RPMs ==='
 find \"\$HOME/rpmbuild/RPMS\" -type f
