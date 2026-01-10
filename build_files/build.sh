@@ -80,6 +80,9 @@ fi
 mkdir -p "$BUILD_HOME"
 chown -R "$BUILD_USER":"$BUILD_USER" "$BUILD_HOME"
 
+# /tmp muss world-writable sein für rpmbuild (check-buildroot verwendet mktemp)
+chmod 1777 /tmp
+
 su - "$BUILD_USER" -c "
 set -euo pipefail
 
