@@ -41,6 +41,9 @@ fi
 
 ### Tuxedo-Treiber bauen (als nicht-root User) und installieren
 
+### Kernel-Header für kmod-Build installieren
+dnf5 install -y kernel-devel
+
 rpm-ostree install rpm-build rpmdevtools kmodtool
 
 BUILD_USER="builder"
