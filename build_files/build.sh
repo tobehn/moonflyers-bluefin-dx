@@ -48,6 +48,12 @@ dnf5 install -y kernel-devel
 KVER=$(rpm -q kernel-devel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
 echo "Building for kernel: $KVER"
 
+# Symlink für Kernel-Build-Verzeichnis erstellen (fehlt in OSTree-Container-Builds)
+mkdir -p "/lib/modules/$KVER"
+ln -sf "/usr/src/kernels/$KVER" "/lib/modules/$KVER/build"
+echo "Created symlink: /lib/modules/$KVER/build -> /usr/src/kernels/$KVER"
+ls -la "/lib/modules/$KVER/"
+
 rpm-ostree install rpm-build rpmdevtools kmodtool
 
 BUILD_USER="builder"
