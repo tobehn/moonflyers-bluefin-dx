@@ -54,6 +54,20 @@ ln -sf "/usr/src/kernels/$KVER" "/lib/modules/$KVER/build"
 echo "Created symlink: /lib/modules/$KVER/build -> /usr/src/kernels/$KVER"
 ls -la "/lib/modules/$KVER/"
 
+# uname-Wrapper erstellen, damit "uname -r" die richtige Kernel-Version zurückgibt
+# (rpmbuild/make verwendet uname -r intern, aber das gibt den Host-Kernel zurück)
+mv /usr/bin/uname /usr/bin/uname.real
+cat > /usr/bin/uname << UNAME_WRAPPER
+#!/bin/bash
+if [[ "\$*" == *"-r"* ]] || [[ "\$*" == *"--kernel-release"* ]]; then
+  echo "$KVER"
+else
+  /usr/bin/uname.real "\$@"
+fi
+UNAME_WRAPPER
+chmod +x /usr/bin/uname
+echo "Created uname wrapper: uname -r now returns $KVER"
+
 rpm-ostree install rpm-build rpmdevtools kmodtool
 
 BUILD_USER="builder"
