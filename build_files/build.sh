@@ -149,7 +149,7 @@ systemctl enable podman.socket
 ### LibrePods (AirPods-Integration für Linux) aus Source bauen
 
 dnf5 install -y qt6-qtbase-devel qt6-qtconnectivity-devel \
-    qt6-qtmultimedia-devel qt6-qtdeclarative-devel qt6-linguist \
+    qt6-qtmultimedia-devel qt6-qtdeclarative-devel qt6-qttools-devel \
     openssl-devel pulseaudio-libs-devel cmake gcc-c++ git
 
 LIBREPODS_SRC="/tmp/librepods"
