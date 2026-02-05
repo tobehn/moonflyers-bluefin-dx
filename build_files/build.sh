@@ -8,6 +8,7 @@ RELEASE="$(rpm -E %fedora)"
 dnf5 install -y tmux
 dnf5 install -y logiops
 dnf5 install -y spacenavd
+dnf5 install -y wtype
 rpm-ostree install screen
 
 # Exec perms for symlink script
