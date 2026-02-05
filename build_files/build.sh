@@ -145,3 +145,19 @@ systemctl enable tccd.service
 systemctl enable tccd-sleep.service
 
 systemctl enable podman.socket
+
+### LibrePods (AirPods-Integration für Linux) aus Source bauen
+
+dnf5 install -y qt6-qtbase-devel qt6-qtconnectivity-devel \
+    qt6-qtmultimedia-devel qt6-qtdeclarative-devel openssl-devel \
+    pulseaudio-libs-devel cmake gcc-c++ git
+
+LIBREPODS_SRC="/tmp/librepods"
+git clone https://github.com/kavishdevar/librepods.git "$LIBREPODS_SRC"
+mkdir -p "$LIBREPODS_SRC/linux/build"
+cd "$LIBREPODS_SRC/linux/build"
+cmake ..
+make -j "$(nproc)"
+install -m 755 librepods /usr/bin/librepods
+cd /
+rm -rf "$LIBREPODS_SRC"
