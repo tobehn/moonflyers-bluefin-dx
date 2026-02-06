@@ -8,8 +8,18 @@ RELEASE="$(rpm -E %fedora)"
 dnf5 install -y tmux
 dnf5 install -y logiops
 dnf5 install -y spacenavd
-dnf5 install -y wtype
+dnf5 install -y ydotool
 rpm-ostree install screen
+
+# ydotoold Daemon aktivieren (ydotool braucht den Daemon)
+systemctl enable ydotool.service
+
+# wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
+cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
+#!/bin/bash
+exec ydotool type "$@"
+WTYPE_WRAPPER
+chmod +x /usr/bin/wtype
 
 # Exec perms for symlink script
 chmod +x /usr/bin/fixtuxedo
