@@ -22,10 +22,18 @@ YDOTOOL_OVERRIDE
 systemctl enable ydotool.service
 
 # wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
+# Clipboard-basiert: wl-copy + Ctrl+V — Layout-unabhängig (ydotool type ist US-only)
 cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
 #!/bin/bash
 export YDOTOOL_SOCKET=/run/ydotoold/socket
-exec ydotool type "$@"
+CLIP_BACKUP=$(wl-paste --no-newline 2>/dev/null)
+printf '%s' "$*" | wl-copy --trim-newline
+sleep 0.05
+ydotool key 29:1 47:1 47:0 29:0
+sleep 0.05
+if [ -n "$CLIP_BACKUP" ]; then
+    printf '%s' "$CLIP_BACKUP" | wl-copy --trim-newline
+fi
 WTYPE_WRAPPER
 chmod +x /usr/bin/wtype
 
