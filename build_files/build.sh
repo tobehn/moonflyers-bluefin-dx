@@ -12,6 +12,7 @@ rpm-ostree install screen
 
 # dotool: Layout-aware Text-Injection (ydotool type kann nur US-ASCII)
 dnf5 install -y golang libxkbcommon-devel
+export GOPATH=/tmp/go GOCACHE=/tmp/go-cache
 DOTOOL_SRC="/tmp/dotool"
 git clone https://git.sr.ht/~geb/dotool "$DOTOOL_SRC"
 cd "$DOTOOL_SRC"
