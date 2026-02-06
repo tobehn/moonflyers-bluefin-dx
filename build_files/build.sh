@@ -10,47 +10,25 @@ dnf5 install -y logiops
 dnf5 install -y spacenavd
 rpm-ostree install screen
 
-# dotool: Layout-aware Text-Injection (ydotool type kann nur US-ASCII)
-dnf5 install -y golang libxkbcommon-devel
-export GOPATH=/tmp/go GOCACHE=/tmp/go-cache
-DOTOOL_SRC="/tmp/dotool"
-git clone https://git.sr.ht/~geb/dotool "$DOTOOL_SRC"
-cd "$DOTOOL_SRC"
-go build -o dotool dotool.go keys.go
-install -m 755 dotool /usr/bin/dotool
-install -m 755 dotoold /usr/bin/dotoold
-install -m 755 dotoolc /usr/bin/dotoolc
-cd /
-rm -rf "$DOTOOL_SRC"
+dnf5 install -y ydotool
 
-# udev-Regel: /dev/uinput für alle User zugänglich (dotool braucht uinput)
-cat > /etc/udev/rules.d/80-dotool.rules << 'DOTOOL_UDEV'
-KERNEL=="uinput", MODE="0666", OPTIONS+="static_node=uinput"
-DOTOOL_UDEV
-
-# dotoold als systemd-Service (hält uinput-Device dauerhaft offen)
-cat > /usr/lib/systemd/system/dotoold.service << 'DOTOOLD_SERVICE'
-[Unit]
-Description=dotool daemon (persistent uinput device)
-After=systemd-udev-settle.service
-
+# ydotoold Daemon: Socket unter /run/ydotoold/ mit User-Zugriff
+install -d /usr/lib/systemd/system/ydotool.service.d
+cat > /usr/lib/systemd/system/ydotool.service.d/override.conf << 'YDOTOOL_OVERRIDE'
 [Service]
-Type=simple
-Environment=DOTOOL_XKB_LAYOUT=de
-ExecStart=/usr/bin/dotoold
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-DOTOOLD_SERVICE
-systemctl enable dotoold.service
+RuntimeDirectory=ydotoold
+ExecStart=
+ExecStart=/usr/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-perm=0666
+YDOTOOL_OVERRIDE
+systemctl enable ydotool.service
 
 # wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
+# Hinweis: ydotool type unterstützt nur US-ASCII, keine Umlaute (ä,ö,ü,ß)
 cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
 #!/bin/bash
+export YDOTOOL_SOCKET=/run/ydotoold/socket
 if [ "$1" = "--" ]; then shift; fi
-echo "type $*" | dotoolc
+exec ydotool type -- "$*"
 WTYPE_WRAPPER
 chmod +x /usr/bin/wtype
 
