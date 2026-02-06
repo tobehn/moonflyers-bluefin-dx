@@ -11,12 +11,20 @@ dnf5 install -y spacenavd
 dnf5 install -y ydotool
 rpm-ostree install screen
 
-# ydotoold Daemon aktivieren (ydotool braucht den Daemon)
+# ydotoold Daemon: Socket unter /run/ydotoold/ mit User-Zugriff
+install -d /usr/lib/systemd/system/ydotool.service.d
+cat > /usr/lib/systemd/system/ydotool.service.d/override.conf << 'YDOTOOL_OVERRIDE'
+[Service]
+RuntimeDirectory=ydotoold
+ExecStart=
+ExecStart=/usr/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-perm=0666
+YDOTOOL_OVERRIDE
 systemctl enable ydotool.service
 
 # wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
 cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
 #!/bin/bash
+export YDOTOOL_SOCKET=/run/ydotoold/socket
 exec ydotool type "$@"
 WTYPE_WRAPPER
 chmod +x /usr/bin/wtype
