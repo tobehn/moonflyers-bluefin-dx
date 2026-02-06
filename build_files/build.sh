@@ -8,32 +8,29 @@ RELEASE="$(rpm -E %fedora)"
 dnf5 install -y tmux
 dnf5 install -y logiops
 dnf5 install -y spacenavd
-dnf5 install -y ydotool
 rpm-ostree install screen
 
-# ydotoold Daemon: Socket unter /run/ydotoold/ mit User-Zugriff
-install -d /usr/lib/systemd/system/ydotool.service.d
-cat > /usr/lib/systemd/system/ydotool.service.d/override.conf << 'YDOTOOL_OVERRIDE'
-[Service]
-RuntimeDirectory=ydotoold
-ExecStart=
-ExecStart=/usr/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-perm=0666
-YDOTOOL_OVERRIDE
-systemctl enable ydotool.service
+# dotool: Layout-aware Text-Injection (ydotool type kann nur US-ASCII)
+dnf5 install -y golang libxkbcommon-devel
+DOTOOL_SRC="/tmp/dotool"
+git clone https://git.sr.ht/~geb/dotool "$DOTOOL_SRC"
+cd "$DOTOOL_SRC"
+go build -o dotool dotool.go keys.go
+install -m 755 dotool /usr/bin/dotool
+cd /
+rm -rf "$DOTOOL_SRC"
+
+# udev-Regel: /dev/uinput für alle User zugänglich (dotool braucht uinput)
+cat > /etc/udev/rules.d/80-dotool.rules << 'DOTOOL_UDEV'
+KERNEL=="uinput", MODE="0666", OPTIONS+="static_node=uinput"
+DOTOOL_UDEV
 
 # wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
-# Clipboard-basiert: wl-copy + Ctrl+V — Layout-unabhängig (ydotool type ist US-only)
 cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
 #!/bin/bash
-export YDOTOOL_SOCKET=/run/ydotoold/socket
-CLIP_BACKUP=$(wl-paste --no-newline 2>/dev/null)
-printf '%s' "$*" | wl-copy --trim-newline
-sleep 0.05
-ydotool key 29:1 47:1 47:0 29:0
-sleep 0.05
-if [ -n "$CLIP_BACKUP" ]; then
-    printf '%s' "$CLIP_BACKUP" | wl-copy --trim-newline
-fi
+export DOTOOL_XKB_LAYOUT=de
+if [ "$1" = "--" ]; then shift; fi
+echo "type $*" | dotool
 WTYPE_WRAPPER
 chmod +x /usr/bin/wtype
 
