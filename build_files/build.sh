@@ -18,6 +18,8 @@ git clone https://git.sr.ht/~geb/dotool "$DOTOOL_SRC"
 cd "$DOTOOL_SRC"
 go build -o dotool dotool.go keys.go
 install -m 755 dotool /usr/bin/dotool
+install -m 755 dotoold /usr/bin/dotoold
+install -m 755 dotoolc /usr/bin/dotoolc
 cd /
 rm -rf "$DOTOOL_SRC"
 
@@ -26,12 +28,29 @@ cat > /etc/udev/rules.d/80-dotool.rules << 'DOTOOL_UDEV'
 KERNEL=="uinput", MODE="0666", OPTIONS+="static_node=uinput"
 DOTOOL_UDEV
 
+# dotoold als systemd-Service (hält uinput-Device dauerhaft offen)
+cat > /usr/lib/systemd/system/dotoold.service << 'DOTOOLD_SERVICE'
+[Unit]
+Description=dotool daemon (persistent uinput device)
+After=systemd-udev-settle.service
+
+[Service]
+Type=simple
+Environment=DOTOOL_XKB_LAYOUT=de
+ExecStart=/usr/bin/dotoold
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+DOTOOLD_SERVICE
+systemctl enable dotoold.service
+
 # wtype-Kompatibilitäts-Wrapper (soundvibes nutzt wtype für Text-Injection)
 cat > /usr/bin/wtype << 'WTYPE_WRAPPER'
 #!/bin/bash
-export DOTOOL_XKB_LAYOUT=de
 if [ "$1" = "--" ]; then shift; fi
-echo "type $*" | dotool
+echo "type $*" | dotoolc
 WTYPE_WRAPPER
 chmod +x /usr/bin/wtype
 
