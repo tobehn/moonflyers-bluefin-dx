@@ -8,7 +8,7 @@ RELEASE="$(rpm -E %fedora)"
 dnf5 install -y tmux
 dnf5 install -y logiops
 dnf5 install -y spacenavd
-rpm-ostree install screen
+dnf5 install -y screen
 
 dnf5 install -y ydotool
 
@@ -90,7 +90,7 @@ UNAME_WRAPPER
 chmod +x /usr/bin/uname
 echo "Created uname wrapper: uname -r now returns $KVER"
 
-rpm-ostree install rpm-build rpmdevtools kmodtool
+dnf5 install -y rpm-build rpmdevtools kmodtool
 
 BUILD_USER="builder"
 BUILD_HOME="/var/home/${BUILD_USER}"
@@ -141,7 +141,7 @@ if [ ${#rpm_files[@]} -eq 0 ]; then
   exit 1
 fi
 
-rpm-ostree install "${rpm_files[@]}"
+dnf5 install -y "${rpm_files[@]}"
 
 ### Tuxedo Control Center „/opt“-Workaround
 
@@ -149,7 +149,7 @@ mkdir -p /usr/share
 rm /opt
 ln -s /usr/share /opt
 
-rpm-ostree install tuxedo-control-center
+dnf5 install -y tuxedo-control-center
 
 cd /
 rm /opt
