@@ -172,7 +172,7 @@ systemctl enable podman.socket
 dnf5 install -y libusb1-devel make gcc git
 git clone --depth=1 https://github.com/raspberrypi/usbboot /tmp/usbboot
 make -C /tmp/usbboot
-install -m 0755 /tmp/usbboot/rpiboot /usr/local/bin/rpiboot
+install -m 0755 /tmp/usbboot/rpiboot /usr/bin/rpiboot
 rm -rf /tmp/usbboot
 dnf5 remove -y libusb1-devel make gcc git
 
