@@ -203,7 +203,8 @@ dnf5 install -y \
     binutils-devel cmake fontconfig-devel gcc gcc-c++ git \
     libX11-devel libXScrnSaver-devel libXcursor-devel \
     libXi-devel libXinerama-devel libXpresent-devel libXrandr-devel \
-    libxkbcommon-x11-devel libxkbcommon-devel make nettle-devel \
+    libxkbcommon-x11-devel libxkbcommon-devel libsamplerate-devel \
+    make nettle-devel \
     pipewire-devel pkgconf-pkg-config pulseaudio-libs-devel \
     spice-protocol wayland-devel wayland-protocols-devel
 
