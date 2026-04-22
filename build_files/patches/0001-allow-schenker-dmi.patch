@@ -1,0 +1,31 @@
+Force tuxedo_is_compatible() to return true.
+
+Rationale: SCHENKER VISION M23 is hardware-identical to TUXEDO InfinityBook
+Pro 16 Gen8 — both are Tongfang PH6PG01/PH6PG71 barebones on NB02 mainboard.
+Only the DMI vendor string differs ("SchenkerTechnologiesGmbH" vs "TUXEDO").
+The upstream compatibility check is marketing policy, not technical gating
+("Going forward we only run the drivers on in house tested devices").
+
+Without this patch, tuxedo_keyboard and NB02/NB04/NB05 modules refuse to
+load on Intel 13th Gen+ CPUs (CPU fallback skips DMI only for pre-12th-Gen).
+Result: no TCC Battery Care, no fan curves, no keyboard backlight control.
+
+---
+ src/tuxedo_compatibility_check/tuxedo_compatibility_check.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/tuxedo_compatibility_check/tuxedo_compatibility_check.c b/src/tuxedo_compatibility_check/tuxedo_compatibility_check.c
+--- a/src/tuxedo_compatibility_check/tuxedo_compatibility_check.c
++++ b/src/tuxedo_compatibility_check/tuxedo_compatibility_check.c
+@@ -220,6 +220,11 @@ static const struct dmi_system_id tuxedo_dmi_string_match[] = {
+ };
+
+ bool tuxedo_is_compatible(void) {
++	// PATCH (moonflyers-bluefin-dx): Force compatibility for baugleiche
++	// Tongfang-Rebrands (z.B. Schenker Vision M23 = TUXEDO InfinityBook
++	// Pro 16 Gen8). Hardware ist identisch, nur der DMI-Vendor unterscheidet.
++	return true;
++
+ 	if (dmi_check_system(tuxedo_dmi_string_match)
+ 	    || (x86_match_cpu(skip_tuxedo_dmi_string_check_match)
+ 	    && !x86_match_cpu(force_tuxedo_dmi_string_check_match))) {

@@ -154,6 +154,14 @@ dnf5 install -y "${rpm_files[@]}"
 TUXEDO_UPSTREAM="/tmp/tuxedo-drivers-upstream"
 git clone --depth=1 https://github.com/tuxedocomputers/tuxedo-drivers.git "$TUXEDO_UPSTREAM"
 cd "$TUXEDO_UPSTREAM"
+
+# Patches anwenden (z.B. Schenker-DMI-Gatekeeping entschärfen — siehe patches/)
+for patch in /ctx/patches/*.patch; do
+  [ -f "$patch" ] || continue
+  echo "=== Applying patch: $(basename "$patch") ==="
+  git apply "$patch"
+done
+
 make KDIR=/lib/modules/$KVER/build
 
 TUXEDO_MOD_DIR="/lib/modules/$KVER/extra/tuxedo"
