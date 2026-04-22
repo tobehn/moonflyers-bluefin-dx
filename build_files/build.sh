@@ -191,3 +191,18 @@ make -j "$(nproc)"
 install -m 755 librepods /usr/bin/librepods
 cd /
 rm -rf "$LIBREPODS_SRC"
+
+### Looking Glass Client (für Windows-VM mit dGPU-Passthrough)
+# Fedora hat LG nicht in Standard-Repos → COPR von kylegospo (auch von Bazzite genutzt)
+
+dnf5 -y copr enable kylegospo/looking-glass-client
+dnf5 -y install looking-glass-client
+dnf5 -y copr disable kylegospo/looking-glass-client
+
+# kvmfr-Modul beim Boot laden (static_size_mb=128 steht schon in /etc/modprobe.d/kvmfr.conf)
+echo "kvmfr" > /etc/modules-load.d/kvmfr.conf
+
+# udev-Rule: /dev/kvmfr0 zugänglich für kvm-Gruppe (User muss in kvm-Gruppe sein)
+cat > /etc/udev/rules.d/99-kvmfr.rules << 'KVMFR_UDEV'
+KERNEL=="kvmfr0", GROUP="kvm", MODE="0660"
+KVMFR_UDEV
