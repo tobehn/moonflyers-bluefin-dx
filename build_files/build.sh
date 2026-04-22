@@ -143,6 +143,29 @@ fi
 
 dnf5 install -y "${rpm_files[@]}"
 
+### Tuxedo Kernel-Module aus Upstream bauen
+# Der tobehn/tuxedo-drivers-kmod Fork baut nur Userland-Config-Pakete (modules-load.d,
+# udev-Rules, hwdb) — keine .ko-Dateien. systemd versucht beim Boot die Module zu laden
+# ("Failed to find module tuxedo_io" etc.), weil die Config da ist aber das Modul fehlt.
+# Konsequenz: TCC kann Battery-Charge-Limit & andere Features nicht anbieten, weil
+# /dev/tuxedo_io und die NB02-Platform-Module fehlen.
+# Fix: Module direkt aus upstream bauen und nach /lib/modules/$KVER/extra/tuxedo/ legen.
+
+TUXEDO_UPSTREAM="/tmp/tuxedo-drivers-upstream"
+git clone --depth=1 https://github.com/tuxedocomputers/tuxedo-drivers.git "$TUXEDO_UPSTREAM"
+cd "$TUXEDO_UPSTREAM"
+make KDIR=/lib/modules/$KVER/build
+
+TUXEDO_MOD_DIR="/lib/modules/$KVER/extra/tuxedo"
+mkdir -p "$TUXEDO_MOD_DIR"
+find . -name "*.ko" -exec install -m 644 {} "$TUXEDO_MOD_DIR/" \;
+echo "Installed tuxedo modules:"
+ls -la "$TUXEDO_MOD_DIR/"
+depmod -a "$KVER"
+
+cd /
+rm -rf "$TUXEDO_UPSTREAM"
+
 ### Tuxedo Control Center „/opt“-Workaround
 
 mkdir -p /usr/share
