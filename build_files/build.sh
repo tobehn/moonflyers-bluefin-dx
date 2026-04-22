@@ -193,11 +193,32 @@ cd /
 rm -rf "$LIBREPODS_SRC"
 
 ### Looking Glass Client (für Windows-VM mit dGPU-Passthrough)
-# Fedora hat LG nicht in Standard-Repos → COPR von kylegospo (auch von Bazzite genutzt)
+# Kein stabiler Fedora-COPR mit aktueller Version → selbst bauen, Version muss
+# zum Windows-Host-Installer matchen (https://looking-glass.io/downloads)
+# Aktuell stabil: B7
 
-dnf5 -y copr enable kylegospo/looking-glass-client
-dnf5 -y install looking-glass-client
-dnf5 -y copr disable kylegospo/looking-glass-client
+LG_VERSION="B7"
+
+dnf5 install -y \
+    binutils-devel cmake fontconfig-devel gcc gcc-c++ git \
+    libX11-devel libXScrnSaver-devel libXcursor-devel \
+    libXi-devel libXinerama-devel libXpresent-devel libXrandr-devel \
+    libxkbcommon-x11-devel libxkbcommon-devel make nettle-devel \
+    pipewire-devel pkgconf-pkg-config pulseaudio-libs-devel \
+    spice-protocol wayland-devel wayland-protocols-devel
+
+LG_SRC="/tmp/looking-glass"
+git clone --depth=1 --branch "${LG_VERSION}" https://github.com/gnif/LookingGlass.git "$LG_SRC"
+# Submodule (cimgui etc.) werden für den Client gebraucht
+cd "$LG_SRC"
+git submodule update --init --recursive
+mkdir -p client/build
+cd client/build
+cmake ..
+make -j "$(nproc)"
+install -m 755 looking-glass-client /usr/bin/looking-glass-client
+cd /
+rm -rf "$LG_SRC"
 
 # kvmfr-Modul beim Boot laden (static_size_mb=128 steht schon in /etc/modprobe.d/kvmfr.conf)
 echo "kvmfr" > /etc/modules-load.d/kvmfr.conf
