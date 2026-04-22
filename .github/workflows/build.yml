@@ -86,6 +86,17 @@ jobs:
           sep-tags: " "
           sep-annotations: " "
 
+      # MOK-Key fürs Modul-Signing in eine temporäre Datei schreiben.
+      # Nur bei echten Builds (kein PR, main branch), sonst würden fork-PRs
+      # versuchen das Secret zu leaken. Wenn die Datei nicht existiert,
+      # überspringt build.sh das Signing (Modules bleiben unsigniert, was
+      # für Test-Builds ohne Secure Boot OK ist).
+      - name: Prepare MOK signing key
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          umask 077
+          printf '%s' "${{ secrets.MOK_PRIVATE_KEY }}" > "${RUNNER_TEMP}/mok-key"
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
@@ -100,6 +111,8 @@ jobs:
           oci: false
           build-args: |
             LOGID_USERNAME=${{ secrets.LOGID_USERNAME }}
+          extra-args: |
+            --secret=id=mok-key,src=${{ runner.temp }}/mok-key
 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.

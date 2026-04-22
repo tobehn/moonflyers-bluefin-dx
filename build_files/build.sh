@@ -174,6 +174,42 @@ depmod -a "$KVER"
 cd /
 rm -rf "$TUXEDO_UPSTREAM"
 
+### Tuxedo-Module mit MOK signieren (für Secure Boot + Lockdown=integrity)
+# Der private Key kommt via buildah --secret=id=mok-key (siehe Containerfile
+# --mount=type=secret,id=mok-key). Public Cert liegt seit dem COPY in
+# /etc/pki/moonflyers-MOK.der. sign-file ist Teil von kernel-devel.
+# Ohne signierte Module würde der Kernel unter Secure Boot ablehnen:
+# "Key was rejected by service"
+
+SIGN_FILE="/usr/src/kernels/$KVER/scripts/sign-file"
+MOK_CERT="/etc/pki/moonflyers-MOK.der"
+MOK_KEY="/run/secrets/mok-key"
+
+if [ ! -x "$SIGN_FILE" ]; then
+    echo "ERROR: sign-file not found at $SIGN_FILE" >&2
+    exit 1
+fi
+if [ ! -f "$MOK_CERT" ]; then
+    echo "ERROR: MOK public cert not at $MOK_CERT — did COPY MOK.der run?" >&2
+    exit 1
+fi
+if [ -f "$MOK_KEY" ]; then
+    echo "=== Signing tuxedo modules with MOK ==="
+    count=0
+    for ko in "$TUXEDO_MOD_DIR"/*.ko; do
+        [ -f "$ko" ] || continue
+        "$SIGN_FILE" sha256 "$MOK_KEY" "$MOK_CERT" "$ko"
+        count=$((count + 1))
+    done
+    echo "Signed $count modules in $TUXEDO_MOD_DIR"
+    # Verifikation: modinfo muss sig_id zeigen
+    modinfo "$TUXEDO_MOD_DIR/tuxedo_io.ko" 2>/dev/null | grep -E '^sig_' | head -3 || true
+else
+    echo "WARNING: No signing key at $MOK_KEY — modules will be UNSIGNED."
+    echo "  They will fail to load if Secure Boot is enabled."
+    echo "  (PR-Builds skip signing intentionally to avoid leaking the key.)"
+fi
+
 ### Tuxedo Control Center „/opt“-Workaround
 
 mkdir -p /usr/share

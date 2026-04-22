@@ -30,10 +30,15 @@ COPY tuxedo.repo /etc/yum.repos.d/tuxedo.repo
 COPY fixtuxedo /usr/bin/fixtuxedo
 COPY fixtuxedo.service /etc/systemd/system/fixtuxedo.service
 
+# Public MOK (X.509 DER) für Modul-Signing-Verifikation und User-Enrollment.
+# Public only — der private Key kommt zur Build-Zeit per --mount=type=secret rein.
+COPY MOK.der /etc/pki/moonflyers-MOK.der
+
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
+    --mount=type=secret,id=mok-key \
     /ctx/build.sh && ostree container commit
     
 ### LINTING
