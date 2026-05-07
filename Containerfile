@@ -29,6 +29,8 @@ FROM ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable
 COPY tuxedo.repo /etc/yum.repos.d/tuxedo.repo
 COPY fixtuxedo /usr/bin/fixtuxedo
 COPY fixtuxedo.service /etc/systemd/system/fixtuxedo.service
+COPY battery-cycle-fix /usr/bin/battery-cycle-fix
+COPY battery-cycle-fix.service /etc/systemd/system/battery-cycle-fix.service
 
 # Public MOK (X.509 DER) für Modul-Signing-Verifikation und User-Enrollment.
 # Public only — der private Key kommt zur Build-Zeit per --mount=type=secret rein.

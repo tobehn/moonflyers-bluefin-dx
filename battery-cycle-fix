@@ -1,0 +1,17 @@
+#!/bin/bash
+# Workaround für Tongfang PH6PG01 Firmware-Bug:
+# ACPI _BIX liefert cycle_count=0, der TUXEDO-Treiber exposed den echten Wert
+# als raw_cycle_count. Wir spiegeln raw_cycle_count via Bind-Mount auf
+# cycle_count, damit upower/GNOME Vitals/etc. den korrekten Wert sehen.
+set -euo pipefail
+
+BAT=/sys/class/power_supply/BAT0
+SRC=$BAT/raw_cycle_count
+DST=$BAT/cycle_count
+MIRROR=/run/battery_cycle_count
+
+[ -r "$SRC" ] || exit 0
+
+cat "$SRC" > "$MIRROR"
+chmod 0444 "$MIRROR"
+mount --bind "$MIRROR" "$DST"

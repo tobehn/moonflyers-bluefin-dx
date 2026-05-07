@@ -36,6 +36,10 @@ chmod +x /usr/bin/wtype
 chmod +x /usr/bin/fixtuxedo
 systemctl enable /etc/systemd/system/fixtuxedo.service
 
+# Battery cycle count fix (Tongfang PH6PG01 firmware bug — see service file)
+chmod +x /usr/bin/battery-cycle-fix
+systemctl enable /etc/systemd/system/battery-cycle-fix.service
+
 ### LogiOps-Override nur, wenn USERNAME gesetzt ist
 
 if [ -n "${USERNAME:-}" ]; then

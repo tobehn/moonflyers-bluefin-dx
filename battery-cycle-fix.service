@@ -1,0 +1,13 @@
+[Unit]
+Description=Mirror raw_cycle_count into cycle_count (Tongfang PH6PG01 firmware bug)
+Before=upower.service
+ConditionPathExists=/sys/class/power_supply/BAT0/raw_cycle_count
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/battery-cycle-fix
+ExecStop=-/bin/umount /sys/class/power_supply/BAT0/cycle_count
+
+[Install]
+WantedBy=multi-user.target
