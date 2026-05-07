@@ -299,3 +299,20 @@ echo "kvmfr" > /etc/modules-load.d/kvmfr.conf
 cat > /etc/udev/rules.d/99-kvmfr.rules << 'KVMFR_UDEV'
 KERNEL=="kvmfr0", GROUP="kvm", MODE="0660"
 KVMFR_UDEV
+
+### GPU-Mode-Switching (supergfxctl + GNOME-Extension)
+# supergfxd kommt mit dem bluefin-dx-nvidia-open Image, ist aber disabled.
+# Ohne aktiven Daemon liefert sowohl `supergfxctl -g` als auch jede Extension
+# nur DBus-ServiceUnknown — D3cold greift nicht weil GNOME-Mutter die dGPU offen hält.
+
+systemctl enable supergfxd.service
+
+# Im Base-Image enthaltene Extension `supergfxctl-gex@asus-linux.org` ist seit
+# GNOME 45 nicht aktualisiert (shell-version: ["45"]) und hat zudem metadata.json
+# mit mode 0600 — GNOME-Shell ignoriert sie damit komplett. Ersetzen durch den
+# gepflegten Fork von chikobara (deklariert GNOME 46-50).
+rm -rf /usr/share/gnome-shell/extensions/supergfxctl-gex@asus-linux.org
+
+GPU_SWITCHER_DIR="/usr/share/gnome-shell/extensions/gpu-switcher-supergfxctl@chikobara.github.io"
+git clone --depth=1 https://github.com/chikobara/GPU-Switcher-Supergfxctl "$GPU_SWITCHER_DIR"
+rm -rf "$GPU_SWITCHER_DIR/.git"
