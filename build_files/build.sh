@@ -182,13 +182,45 @@ for patch in /ctx/patches/*.patch; do
   git apply "$patch"
 done
 
-make KDIR=/lib/modules/$BUILD_KVER/build
+# KERNELRELEASE override: versucht vermagic direkt auf INSTALL_KVER zu setzen.
+# Manche Module-Makefiles respektieren das, andere ignorieren es — wir patchen
+# darum nachträglich nochmal binär (idempotent).
+make KDIR=/lib/modules/$BUILD_KVER/build KERNELRELEASE=$INSTALL_KVER
 
 # Module ins Verzeichnis des GEBOOTETEN Kernels installieren — sonst findet sie
 # modprobe beim Boot nicht.
 TUXEDO_MOD_DIR="/lib/modules/$INSTALL_KVER/extra/tuxedo"
 mkdir -p "$TUXEDO_MOD_DIR"
 find . -name "*.ko" -exec install -m 644 {} "$TUXEDO_MOD_DIR/" \;
+
+# Vermagic-Patch: modprobe vergleicht den vermagic-String byte-exact mit dem
+# Kernel. Wenn BUILD_KVER != INSTALL_KVER (z.B. 6.19.14-300 vs -101), wird das
+# Modul mit "Invalid module format" silent abgelehnt — kein dmesg, kein
+# systemd-modules-load.service-Failure.
+# In-place-Replace ist nur safe wenn beide Strings gleich lang sind.
+if [ "$BUILD_KVER" != "$INSTALL_KVER" ]; then
+    if [ ${#BUILD_KVER} -ne ${#INSTALL_KVER} ]; then
+        echo "FATAL: KVER string lengths differ — binary vermagic patch unsafe"
+        echo "  BUILD_KVER:   $BUILD_KVER (${#BUILD_KVER} chars)"
+        echo "  INSTALL_KVER: $INSTALL_KVER (${#INSTALL_KVER} chars)"
+        exit 1
+    fi
+    echo "Patching vermagic: $BUILD_KVER -> $INSTALL_KVER"
+    for ko in "$TUXEDO_MOD_DIR"/*.ko; do
+        [ -f "$ko" ] || continue
+        python3 - "$ko" "$BUILD_KVER" "$INSTALL_KVER" <<'PY'
+import sys
+ko, old, new = sys.argv[1], sys.argv[2].encode(), sys.argv[3].encode()
+with open(ko, 'rb') as f:
+    data = f.read()
+if old in data:
+    with open(ko, 'wb') as f:
+        f.write(data.replace(old, new))
+    print(f"  patched {ko}")
+PY
+    done
+fi
+
 echo "Installed tuxedo modules to /lib/modules/$INSTALL_KVER/extra/tuxedo/:"
 ls -la "$TUXEDO_MOD_DIR/"
 depmod -a "$INSTALL_KVER"
