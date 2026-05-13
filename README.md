@@ -16,7 +16,6 @@ Personal Bluefin-DX Custom-Image für [moonflyer](https://github.com/tobehn) —
 | **fixtuxedo.service** | `/opt`-Symlink-Workaround für TCC auf OSTree. |
 | **LogiOps** (`logid.service`) | Erweiterte Logitech-MX-Master-Konfiguration, Gesten. |
 | **spacenavd** | 3D-Maus-Support (SpaceMouse). |
-| **ydotool** + `wtype`-Wrapper | Keyboard-Input-Automation auf Wayland (z.B. für soundvibes). |
 | **rpiboot** (from source) | Raspberry Pi USB Boot Tool. |
 | **LibrePods** (from source) | AirPods-Integration unter Linux. |
 | **Utilities** | tmux, screen. |
