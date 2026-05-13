@@ -46,11 +46,11 @@ fi
 ### Tuxedo-Treiber bauen (als nicht-root User) und installieren
 
 ### Kernel-Header für kmod-Build installieren
-dnf5 install -y kernel-devel
-
-# Kernel-Version aus installiertem kernel-devel ermitteln (nicht uname -r, das ist der Host-Kernel)
-KVER=$(rpm -q kernel-devel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
+# Pin auf den im Base-Image installierten Kernel — sonst zieht dnf5 das
+# Repo-Latest (z.B. 7.0.4) und baut Module die zum gebooteten 6.19.14 nicht passen.
+KVER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
 echo "Building for kernel: $KVER"
+dnf5 install -y "kernel-devel-${KVER}"
 
 # Symlink für Kernel-Build-Verzeichnis erstellen (fehlt in OSTree-Container-Builds)
 mkdir -p "/lib/modules/$KVER"
