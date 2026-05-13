@@ -48,9 +48,11 @@ fi
 ### Kernel-Header für kmod-Build installieren
 # Pin auf den im Base-Image installierten Kernel — sonst zieht dnf5 das
 # Repo-Latest (z.B. 7.0.4) und baut Module die zum gebooteten 6.19.14 nicht passen.
+# updates-archive enablen, weil Fedora ältere kernel-devel-Versionen aus updates rauswirft
+# sobald ein neuerer Kernel erscheint.
 KVER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
 echo "Building for kernel: $KVER"
-dnf5 install -y "kernel-devel-${KVER}"
+dnf5 install -y --enablerepo=updates-archive "kernel-devel-${KVER}"
 
 # Symlink für Kernel-Build-Verzeichnis erstellen (fehlt in OSTree-Container-Builds)
 mkdir -p "/lib/modules/$KVER"
