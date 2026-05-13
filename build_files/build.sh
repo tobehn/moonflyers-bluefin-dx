@@ -46,33 +46,69 @@ fi
 ### Tuxedo-Treiber bauen (als nicht-root User) und installieren
 
 ### Kernel-Header für kmod-Build installieren
-# Pin auf den im Base-Image installierten Kernel — sonst zieht dnf5 das
-# Repo-Latest (z.B. 7.0.4) und baut Module die zum gebooteten 6.19.14 nicht passen.
-# updates-archive enablen, weil Fedora ältere kernel-devel-Versionen aus updates rauswirft
-# sobald ein neuerer Kernel erscheint.
-KVER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
-echo "Building for kernel: $KVER"
-dnf5 install -y --enablerepo=updates-archive "kernel-devel-${KVER}"
+#
+# Knifflige Lage: Bluefin's Base-Image shippt manchmal einen Kernel mit einem
+# Pre-Release (z.B. 6.19.14-101.fc44), den Fedora aus den Repos genommen hat
+# (ersetzt durch -300). Eine exakte Version-Pin schlägt dann fehl.
+#
+# Strategie:
+#   INSTALL_KVER = der im Base-Image installierte Kernel (Ziel-Pfad für Module)
+#   BUILD_KVER   = die kernel-devel-Version, die tatsächlich aus dem Repo
+#                  installierbar ist (für Header/sign-file). Sollte dieselbe
+#                  Major.Minor.Patch wie INSTALL_KVER sein — innerhalb dieser
+#                  Patch-Version ist die Fedora-kABI praktisch immer stabil.
+INSTALL_KVER=$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
+INSTALL_VERSION=$(rpm -q kernel --queryformat '%{VERSION}\n' | head -1)
+echo "Booted kernel: $INSTALL_KVER (VERSION=$INSTALL_VERSION)"
+
+# Versuche exakten Match, fallback auf latest-mit-gleicher-VERSION
+if dnf5 install -y --enablerepo=updates-archive "kernel-devel-${INSTALL_KVER}" 2>&1; then
+    echo "kernel-devel exact match installed"
+else
+    echo "kernel-devel-${INSTALL_KVER} not in repos, falling back to latest matching VERSION=${INSTALL_VERSION}"
+    dnf5 install -y --enablerepo=updates-archive "kernel-devel-${INSTALL_VERSION}-*.fc44.x86_64"
+fi
+
+BUILD_KVER=$(rpm -q kernel-devel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' | head -1)
+BUILD_VERSION=$(rpm -q kernel-devel --queryformat '%{VERSION}\n' | head -1)
+echo "Building with kernel-devel: $BUILD_KVER"
+
+if [ "$BUILD_VERSION" != "$INSTALL_VERSION" ]; then
+    echo "FATAL: kernel-devel VERSION mismatch (build=$BUILD_VERSION, install=$INSTALL_VERSION)"
+    echo "       Patch-version differs — kABI not guaranteed. Aborting."
+    exit 1
+fi
+
+if [ "$BUILD_KVER" != "$INSTALL_KVER" ]; then
+    echo "INFO: Build headers $BUILD_KVER differ from boot kernel $INSTALL_KVER"
+    echo "      Same patch-version, kABI assumed stable. Modules built against"
+    echo "      $BUILD_KVER will be installed under /lib/modules/$INSTALL_KVER/"
+fi
 
 # Symlink für Kernel-Build-Verzeichnis erstellen (fehlt in OSTree-Container-Builds)
-mkdir -p "/lib/modules/$KVER"
-ln -sf "/usr/src/kernels/$KVER" "/lib/modules/$KVER/build"
-echo "Created symlink: /lib/modules/$KVER/build -> /usr/src/kernels/$KVER"
-ls -la "/lib/modules/$KVER/"
+mkdir -p "/lib/modules/$BUILD_KVER"
+ln -sf "/usr/src/kernels/$BUILD_KVER" "/lib/modules/$BUILD_KVER/build"
+echo "Created symlink: /lib/modules/$BUILD_KVER/build -> /usr/src/kernels/$BUILD_KVER"
+ls -la "/lib/modules/$BUILD_KVER/"
 
-# uname-Wrapper erstellen, damit "uname -r" die richtige Kernel-Version zurückgibt
-# (rpmbuild/make verwendet uname -r intern, aber das gibt den Host-Kernel zurück)
+# Damit depmod -a $INSTALL_KVER später was zum scannen findet, auch dort einen Pfad anlegen
+mkdir -p "/lib/modules/$INSTALL_KVER"
+
+# uname-Wrapper erstellen, damit "uname -r" BUILD_KVER zurückgibt (für rpmbuild/make)
 mv /usr/bin/uname /usr/bin/uname.real
 cat > /usr/bin/uname << UNAME_WRAPPER
 #!/bin/bash
 if [[ "\$*" == *"-r"* ]] || [[ "\$*" == *"--kernel-release"* ]]; then
-  echo "$KVER"
+  echo "$BUILD_KVER"
 else
   /usr/bin/uname.real "\$@"
 fi
 UNAME_WRAPPER
 chmod +x /usr/bin/uname
-echo "Created uname wrapper: uname -r now returns $KVER"
+echo "Created uname wrapper: uname -r now returns $BUILD_KVER"
+
+# KVER für den Rest des Skripts = BUILD_KVER (für rpmbuild, make KDIR, sign-file)
+KVER="$BUILD_KVER"
 
 dnf5 install -y rpm-build rpmdevtools kmodtool
 
@@ -146,14 +182,16 @@ for patch in /ctx/patches/*.patch; do
   git apply "$patch"
 done
 
-make KDIR=/lib/modules/$KVER/build
+make KDIR=/lib/modules/$BUILD_KVER/build
 
-TUXEDO_MOD_DIR="/lib/modules/$KVER/extra/tuxedo"
+# Module ins Verzeichnis des GEBOOTETEN Kernels installieren — sonst findet sie
+# modprobe beim Boot nicht.
+TUXEDO_MOD_DIR="/lib/modules/$INSTALL_KVER/extra/tuxedo"
 mkdir -p "$TUXEDO_MOD_DIR"
 find . -name "*.ko" -exec install -m 644 {} "$TUXEDO_MOD_DIR/" \;
-echo "Installed tuxedo modules:"
+echo "Installed tuxedo modules to /lib/modules/$INSTALL_KVER/extra/tuxedo/:"
 ls -la "$TUXEDO_MOD_DIR/"
-depmod -a "$KVER"
+depmod -a "$INSTALL_KVER"
 
 cd /
 rm -rf "$TUXEDO_UPSTREAM"
