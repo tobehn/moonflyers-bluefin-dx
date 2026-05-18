@@ -336,7 +336,10 @@ cd "$LG_SRC"
 git submodule update --init --recursive
 mkdir -p client/build
 cd client/build
-cmake ..
+# ENABLE_BACKTRACE=OFF umgeht libbfd → vermeidet ZSTD_*-undefined-references
+# auf Fedora 44 (binutils-2.46 baked zstd in libbfd.a ein, LookingGlass B7's
+# FindBFD.cmake kennt libzstd nicht als Dep). Verzicht: keine Crash-Backtraces.
+cmake -DENABLE_BACKTRACE=OFF ..
 make -j "$(nproc)"
 install -m 755 looking-glass-client /usr/bin/looking-glass-client
 cd /
