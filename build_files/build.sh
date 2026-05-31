@@ -353,19 +353,32 @@ cat > /etc/udev/rules.d/99-kvmfr.rules << 'KVMFR_UDEV'
 KERNEL=="kvmfr0", GROUP="kvm", MODE="0660"
 KVMFR_UDEV
 
-### GPU-Mode-Switching (supergfxctl + GNOME-Extension)
-# supergfxd kommt mit dem bluefin-dx-nvidia-open Image, ist aber disabled.
-# Ohne aktiven Daemon liefert sowohl `supergfxctl -g` als auch jede Extension
-# nur DBus-ServiceUnknown — D3cold greift nicht weil GNOME-Mutter die dGPU offen hält.
+### dGPU Power Management via Kernel Runtime-PM (D3cold)
+# Schenker Vision M23 ist MUX-less Optimus — supergfxd's globaler Mode-Switch
+# bringt hier nichts ausser Shutdown-Hangs (supergfxd killt /dev/nvidia0-Halter
+# mid-shutdown -> Compositor-Tod -> systemd-watchdog 4.5min -> EC-Fan-Fail-Safe
+# auf 100%). Stattdessen: nvidia-Treiber-Option NVreg_DynamicPowerManagement=0x02
+# laesst die dGPU automatisch in D3cold suspenden wenn keine App PRIME nutzt
+# (~0 W PCIe-Lane abgeschaltet). switcheroo-control + `switcherooctl launch -g 1`
+# wecken sie on-demand wieder auf.
+#
+# nvidia-persistenced wird gemaskt weil er die dGPU permanent wachhaelt
+# (verhindert D3cold). Auf Laptops kontraproduktiv.
 
-systemctl enable supergfxd.service
+cat > /etc/modprobe.d/nvidia-pm.conf << 'NVPM'
+# Auto-Suspend dGPU in D3cold wenn idle (PCIe-Lane stromlos, ~0 W)
+options nvidia NVreg_DynamicPowerManagement=0x02
+NVPM
 
-# Im Base-Image enthaltene Extension `supergfxctl-gex@asus-linux.org` ist seit
-# GNOME 45 nicht aktualisiert (shell-version: ["45"]) und hat zudem metadata.json
-# mit mode 0600 — GNOME-Shell ignoriert sie damit komplett. Ersetzen durch den
-# gepflegten Fork von chikobara (deklariert GNOME 46-50).
+# nvidia wird im Base-Image via force_drivers+= in die initramfs gebakt
+# (s. /usr/lib/dracut/dracut.conf.d/99-nvidia.conf). Damit unsere modprobe-Option
+# beim early Modul-Load greift, muss nvidia-pm.conf explizit mit in die initramfs.
+cat > /etc/dracut.conf.d/99-nvidia-pm.conf << 'DRACUT'
+install_items+=" /etc/modprobe.d/nvidia-pm.conf "
+DRACUT
+
+systemctl mask supergfxd.service
+systemctl mask nvidia-persistenced.service
+
+# Base-Image Extension fuer supergfxctl entfernen (obsolet ohne Daemon)
 rm -rf /usr/share/gnome-shell/extensions/supergfxctl-gex@asus-linux.org
-
-GPU_SWITCHER_DIR="/usr/share/gnome-shell/extensions/gpu-switcher-supergfxctl@chikobara.github.io"
-git clone --depth=1 https://github.com/chikobara/GPU-Switcher-Supergfxctl "$GPU_SWITCHER_DIR"
-rm -rf "$GPU_SWITCHER_DIR/.git"
