@@ -357,13 +357,24 @@ KVMFR_UDEV
 # Schenker Vision M23 ist MUX-less Optimus — supergfxd's globaler Mode-Switch
 # bringt hier nichts ausser Shutdown-Hangs (supergfxd killt /dev/nvidia0-Halter
 # mid-shutdown -> Compositor-Tod -> systemd-watchdog 4.5min -> EC-Fan-Fail-Safe
-# auf 100%). Stattdessen: nvidia-Treiber-Option NVreg_DynamicPowerManagement=0x02
-# laesst die dGPU automatisch in D3cold suspenden wenn keine App PRIME nutzt
-# (~0 W PCIe-Lane abgeschaltet). switcheroo-control + `switcherooctl launch -g 1`
+# auf 100%). Stattdessen: Kernel-Runtime-PM laesst die dGPU in D3cold suspenden
+# (~0 W, PCIe-Lane abgeschaltet); switcheroo-control + `switcherooctl launch -g 1`
 # wecken sie on-demand wieder auf.
 #
-# nvidia-persistenced wird gemaskt weil er die dGPU permanent wachhaelt
-# (verhindert D3cold). Auf Laptops kontraproduktiv.
+# WICHTIG (Diagnose 2026-06-01): NVreg_DynamicPowerManagement=0x02 ALLEIN reicht
+# NICHT. Drei Halter verhindern D3cold und muessen ALLE adressiert werden:
+#   1. mutter/gnome-shell nutzt per libglvnd-EGL das nvidia-Backend
+#      (libnvidia-egl-wayland.so) -> dauerhaft /dev/nvidia*-FDs offen. Der
+#      Compositor nutzt EGL, NICHT Vulkan -> VK_LOADER_DRIVERS_SELECT allein
+#      greift NICHT. Fix: __EGL_VENDOR_LIBRARY_FILENAMES auf Mesa pinnen.
+#   2. power/control landet beim Boot auf "on" (udev bind/unbind-Race der
+#      nvidia/supergfxd-PM-Rules) statt "auto" -> Runtime-PM aus. Fix: Service
+#      forciert "auto" nach Boot-Settling, race-immun.
+#   3. Monitor-Tools (GNOME-Vitals, TUXEDO Control Center GUI) pollen die dGPU
+#      via nvidia-smi/EC und wecken sie permanent (Observer-Effekt). Kein
+#      Image-Fix moeglich — GPU-Sensor im Tool deaktivieren bzw. Fenster zu.
+# nvidia-persistenced wird gemaskt weil er die dGPU permanent wachhaelt.
+# Siehe ai-vault: memory/patterns/2026-06-01-hybrid-laptop-gpu-idle-power-diagnosis
 
 cat > /etc/modprobe.d/nvidia-pm.conf << 'NVPM'
 # Auto-Suspend dGPU in D3cold wenn idle (PCIe-Lane stromlos, ~0 W)
@@ -377,6 +388,39 @@ cat > /etc/dracut.conf.d/99-nvidia-pm.conf << 'DRACUT'
 install_items+=" /etc/modprobe.d/nvidia-pm.conf "
 DRACUT
 
+# Halter 1: EGL+Vulkan-Render auf iGPU pinnen, damit der Wayland-Compositor und
+# GUI-Apps die dGPU nicht offen halten. System-weit, damit es fuer die
+# GDM/User-Session schon beim Boot greift (nicht erst nach ~/.config-Timing).
+# PRIME-Offload (`switcherooctl launch -g 1 <app>`) setzt __NV_PRIME_RENDER_OFFLOAD
+# + __GLX_VENDOR_LIBRARY_NAME=nvidia und ueberschreibt das per-App.
+# Trade-off: EGL-Offload-Apps muessten ihr eigenes __EGL_VENDOR_LIBRARY_FILENAMES
+# setzen; FreeCAD (GLX) und Blender (CUDA/OptiX) sind NICHT betroffen.
+install -d /usr/lib/environment.d
+cat > /usr/lib/environment.d/98-dgpu-igpu-pinning.conf << 'EGLENV'
+__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
+VK_LOADER_DRIVERS_SELECT=*intel*
+EGLENV
+
+# Halter 2: power/control deterministisch auf "auto" nach Boot-Settling. Die
+# nvidia/supergfxd-udev-Rules setzen "auto" zwar bei bind, aber ein bind/unbind/
+# rebind beim Modul-Load (nvidia -> nvidia_modeset -> nvidia_drm) kann mit dem
+# unbind->"on"-Zweig enden. Dieser Oneshot laeuft nach multi-user.target und
+# erzwingt "auto" fuer alle 0x10de-GPUs (idempotent, race-immun).
+cat > /usr/lib/systemd/system/nvidia-d3cold-pm.service << 'D3SVC'
+[Unit]
+Description=Force runtime PM auto on NVIDIA dGPU (enables D3cold)
+After=multi-user.target
+ConditionPathExistsGlob=/sys/bus/pci/drivers/nvidia/0000*
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -c 'for d in /sys/bus/pci/devices/*; do if [ "$(cat "$d/vendor" 2>/dev/null)" = "0x10de" ] && [ -e "$d/power/control" ]; then echo auto > "$d/power/control"; fi; done'
+
+[Install]
+WantedBy=multi-user.target
+D3SVC
+
+systemctl enable nvidia-d3cold-pm.service
 systemctl mask supergfxd.service
 systemctl mask nvidia-persistenced.service
 
