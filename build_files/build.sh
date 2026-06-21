@@ -18,6 +18,16 @@ systemctl enable /etc/systemd/system/fixtuxedo.service
 chmod +x /usr/bin/battery-cycle-fix
 systemctl enable /etc/systemd/system/battery-cycle-fix.service
 
+# GNOME Vitals reads the kernel uevent file, which ignores the battery-cycle-fix
+# bind-mount, so it needs its own patch to show the real cycle count. User-level
+# oneshot, runs once per login before the graphical session (auto-re-applies
+# after every Vitals update). Enable via vendor symlink (no running systemd at
+# build time).
+chmod +x /usr/libexec/vitals-cycle-patch
+mkdir -p /usr/lib/systemd/user/graphical-session-pre.target.wants
+ln -sf ../vitals-cycle-patch.service \
+  /usr/lib/systemd/user/graphical-session-pre.target.wants/vitals-cycle-patch.service
+
 ### LogiOps-Override nur, wenn USERNAME gesetzt ist
 
 if [ -n "${USERNAME:-}" ]; then

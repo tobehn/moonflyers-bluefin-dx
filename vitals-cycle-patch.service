@@ -1,0 +1,14 @@
+[Unit]
+Description=Patch GNOME Vitals to show real battery cycle count (Tongfang PH6PG01)
+ConditionPathExists=%h/.local/share/gnome-shell/extensions/Vitals@CoreCoding.com/sensors.js
+# Run before the graphical session so gnome-shell loads the patched sensors.js
+# on the first login after a Vitals update (no second login needed).
+Before=graphical-session-pre.target
+PartOf=graphical-session-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/vitals-cycle-patch
+
+[Install]
+WantedBy=graphical-session-pre.target

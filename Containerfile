@@ -31,6 +31,8 @@ COPY fixtuxedo /usr/bin/fixtuxedo
 COPY fixtuxedo.service /etc/systemd/system/fixtuxedo.service
 COPY battery-cycle-fix /usr/bin/battery-cycle-fix
 COPY battery-cycle-fix.service /etc/systemd/system/battery-cycle-fix.service
+COPY vitals-cycle-patch /usr/libexec/vitals-cycle-patch
+COPY vitals-cycle-patch.service /usr/lib/systemd/user/vitals-cycle-patch.service
 
 # Public MOK (X.509 DER) für Modul-Signing-Verifikation und User-Enrollment.
 # Public only — der private Key kommt zur Build-Zeit per --mount=type=secret rein.

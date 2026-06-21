@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+"""Patch GNOME Vitals to show the real battery cycle count (Tongfang PH6PG01).
+
+Background:
+  The Tongfang PH6PG01 EC reports cycle_count=0 via ACPI _BIX. The TUXEDO driver
+  exposes the real value as raw_cycle_count, which battery-cycle-fix.service
+  bind-mounts onto cycle_count so upower sees it. GNOME Vitals, however, reads
+  the kernel-generated uevent file, which is built on-demand from the driver's
+  internal property dict and IGNORES bind-mounts on individual attributes — so
+  Vitals keeps showing 0.
+
+  Fix: right after Vitals parses the uevent into `output`, overwrite
+  output['CYCLE_COUNT'] from raw_cycle_count. One spot at the source — every
+  consumer of that value sees the truth, and the parse loop is a stable anchor.
+
+  Device-specific on purpose (BAT0 hardcoded): this image only ever runs on the
+  moonflyer, which has a single battery. Python (not bash) so the JS injection
+  is an exact str.replace() without sed/perl escaping pitfalls.
+
+Properties:
+  - idempotent: no-op if already patched (MARKER present)
+  - fail-safe:  no-op if the parse loop is gone (e.g. Vitals refactored its
+                code) — never corrupts the file
+  - no-op if Vitals is not installed
+
+Runs once per login via vitals-cycle-patch.service, before the graphical session
+starts, so gnome-shell loads the patched file on first boot after a Vitals update.
+"""
+import sys
+from pathlib import Path
+
+EXT = Path.home() / ".local/share/gnome-shell/extensions/Vitals@CoreCoding.com/sensors.js"
+
+# Stable across Vitals versions: the loop that parses the uevent into `output`.
+ANCHOR = """\
+            let output = {};
+            for (let line of lines) {
+                let split = line.split('=');
+                output[split[0].replace('POWER_SUPPLY_', '')] = split[1];
+            }"""
+
+# Overwrite the cycle count from raw_cycle_count right after the parse loop.
+# GLib is imported at the top of sensors.js. Leaves output untouched on any error.
+INJECT = """
+
+            // Tongfang PH6PG01: ACPI _BIX reports cycle_count=0; the real value
+            // lives in raw_cycle_count (TUXEDO driver). Override here so every
+            // consumer of output['CYCLE_COUNT'] (uevent path) sees the truth.
+            try {
+                let [ok, c] = GLib.file_get_contents('/sys/class/power_supply/BAT0/raw_cycle_count');
+                if (ok) { let v = new TextDecoder().decode(c).trim(); if (v) output['CYCLE_COUNT'] = v; }
+            } catch (e) {}"""
+
+REPLACEMENT = ANCHOR + INJECT
+
+MARKER = "raw_cycle_count"
+
+
+def main():
+    if not EXT.is_file():
+        return  # Vitals not installed → nothing to do
+
+    src = EXT.read_text()
+
+    if MARKER in src:
+        return  # already patched
+
+    if ANCHOR not in src:
+        print(
+            "vitals-cycle-patch: anchor (uevent parse loop) not found "
+            "(Vitals code changed?), skipping",
+            file=sys.stderr,
+        )
+        return
+
+    EXT.write_text(src.replace(ANCHOR, REPLACEMENT, 1))
+    print("vitals-cycle-patch: patched sensors.js to read raw_cycle_count")
+
+
+if __name__ == "__main__":
+    main()
