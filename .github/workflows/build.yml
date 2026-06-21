@@ -111,8 +111,12 @@ jobs:
           oci: false
           build-args: |
             LOGID_USERNAME=${{ secrets.LOGID_USERNAME }}
+          # Pass the MOK secret only for real builds. On PRs the secret file is
+          # never written (no secret access for Dependabot/fork PRs), and buildah
+          # aborts with "could not parse secrets" if --secret points at a missing
+          # file. Without it, build.sh skips signing (see "Prepare MOK signing key").
           extra-args: |
-            --secret=id=mok-key,src=${{ runner.temp }}/mok-key
+            ${{ (github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) && format('--secret=id=mok-key,src={0}/mok-key', runner.temp) || '' }}
 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
