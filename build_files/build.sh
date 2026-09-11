@@ -307,22 +307,6 @@ install -m 0755 /tmp/usbboot/rpiboot /usr/bin/rpiboot
 rm -rf /tmp/usbboot
 dnf5 remove -y libusb1-devel make gcc git
 
-### LibrePods (AirPods-Integration für Linux) aus Source bauen
-
-dnf5 install -y qt6-qtbase-devel qt6-qtconnectivity-devel \
-    qt6-qtmultimedia-devel qt6-qtdeclarative-devel qt6-qttools-devel \
-    openssl-devel pulseaudio-libs-devel cmake gcc-c++ git
-
-LIBREPODS_SRC="/tmp/librepods"
-git clone https://github.com/kavishdevar/librepods.git "$LIBREPODS_SRC"
-mkdir -p "$LIBREPODS_SRC/linux/build"
-cd "$LIBREPODS_SRC/linux/build"
-cmake ..
-make -j "$(nproc)"
-install -m 755 librepods /usr/bin/librepods
-cd /
-rm -rf "$LIBREPODS_SRC"
-
 ### Looking Glass Client (für Windows-VM mit dGPU-Passthrough)
 # Kein stabiler Fedora-COPR mit aktueller Version → selbst bauen, Version muss
 # zum Windows-Host-Installer matchen (https://looking-glass.io/downloads)

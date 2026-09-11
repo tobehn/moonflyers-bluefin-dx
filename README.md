@@ -17,7 +17,6 @@ Personal Bluefin-DX Custom-Image für [moonflyer](https://github.com/tobehn) —
 | **LogiOps** (`logid.service`) | Erweiterte Logitech-MX-Master-Konfiguration, Gesten. |
 | **spacenavd** | 3D-Maus-Support (SpaceMouse). |
 | **rpiboot** (from source) | Raspberry Pi USB Boot Tool. |
-| **LibrePods** (from source) | AirPods-Integration unter Linux. |
 | **Utilities** | tmux, screen. |
 
 ## How to rebase
