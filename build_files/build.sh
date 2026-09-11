@@ -314,8 +314,12 @@ dnf5 remove -y libusb1-devel make gcc git
 
 LG_VERSION="B7"
 
+# libglvnd-devel liefert egl.pc/gl.pc/glx.pc für die EGL/OpenGL-Renderer. Kam
+# bis 2026-09 nur transitiv über qt6-qtbase-devel (LibrePods) mit — nach dessen
+# Entfernung brach cmake mit "Package 'egl' not found" ab. Explizit deklarieren.
 dnf5 install -y \
     binutils-devel cmake fontconfig-devel gcc gcc-c++ git \
+    libglvnd-devel \
     libX11-devel libXScrnSaver-devel libXcursor-devel \
     libXi-devel libXinerama-devel libXpresent-devel libXrandr-devel \
     libxkbcommon-x11-devel libxkbcommon-devel libsamplerate-devel \
