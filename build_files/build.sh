@@ -290,8 +290,23 @@ ls -al /
 rm /usr/bin/tuxedo-control-center
 ln -s /usr/share/tuxedo-control-center/tuxedo-control-center /usr/bin/tuxedo-control-center
 
-sed -i 's|/opt|/usr/share|g' /etc/systemd/system/tccd.service
-sed -i 's|/opt|/usr/share|g' /usr/share/applications/tuxedo-control-center.desktop
+# TCC >= 3.1 liefert die Unit unter /usr/lib/systemd/system und die .desktop als
+# com.tuxedocomputers.tcc.desktop; ältere Versionen unter /etc bzw. tuxedo-control-center.desktop
+TCC_PATCHED=0
+for f in /etc/systemd/system/tccd.service \
+         /usr/lib/systemd/system/tccd.service \
+         /usr/lib/systemd/system/tccd-sleep.service \
+         /usr/share/applications/tuxedo-control-center.desktop \
+         /usr/share/applications/com.tuxedocomputers.tcc.desktop \
+         /etc/xdg/autostart/tuxedo-control-center-tray.desktop; do
+    if [ -f "$f" ]; then
+        sed -i 's|/opt|/usr/share|g' "$f"
+        TCC_PATCHED=$((TCC_PATCHED + 1))
+    fi
+done
+[ "$TCC_PATCHED" -gt 0 ] || { echo "TCC: keine Unit/.desktop zum Patchen gefunden" >&2; exit 1; }
+grep -q '/usr/share/tuxedo-control-center' /usr/lib/systemd/system/tccd.service /etc/systemd/system/tccd.service 2>/dev/null \
+    || { echo "TCC: tccd.service ExecStart nicht umgeschrieben" >&2; exit 1; }
 
 systemctl enable tccd.service
 systemctl enable tccd-sleep.service
