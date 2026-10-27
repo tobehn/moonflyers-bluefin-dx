@@ -397,6 +397,9 @@ NVPM
 # nvidia wird im Base-Image via force_drivers+= in die initramfs gebakt
 # (s. /usr/lib/dracut/dracut.conf.d/99-nvidia.conf). Damit unsere modprobe-Option
 # beim early Modul-Load greift, muss nvidia-pm.conf explizit mit in die initramfs.
+# Die initramfs wird dafür am Ende dieses Skripts zur Build-Zeit regeneriert
+# (s. Abschnitt "Initramfs zur Build-Zeit regenerieren") — kein lokales
+# `rpm-ostree initramfs --enable` mehr nötig.
 cat > /etc/dracut.conf.d/99-nvidia-pm.conf << 'DRACUT'
 install_items+=" /etc/modprobe.d/nvidia-pm.conf "
 DRACUT
@@ -439,3 +442,66 @@ systemctl mask nvidia-persistenced.service
 
 # Base-Image Extension fuer supergfxctl entfernen (obsolet ohne Daemon)
 rm -rf /usr/share/gnome-shell/extensions/supergfxctl-gex@asus-linux.org
+
+### Initramfs zur Build-Zeit regenerieren (bootc-kompatibel)
+# Das Base-Image liefert eine fertige initramfs, in der unsere dracut.conf.d-
+# Ergänzungen (99-nvidia-pm.conf -> nvidia-pm.conf im early Modul-Load) fehlen.
+# Bisher wurde das auf dem Host per `rpm-ostree initramfs --enable` nachgeholt.
+# Das macht jedes Deployment zu einem "derived commit" (BaseCommit != Commit),
+# den bootc verweigert: `ujust update` -> "Deployment contains local rpm-ostree
+# modifications; cannot upgrade via bootc". uupd fiel deshalb still auf
+# rpm-ostree zurück.
+#
+# Lösung wie in ublue-os/main (build_files/initramfs.sh): dracut im Container,
+# mit denselben Flags wie die rpm-ostree-Regeneration. Muss NACH Modul-Build,
+# depmod und MOK-Signing laufen, damit die initramfs den finalen Stand sieht.
+# Bewusst INSTALL_KVER (rpm -q kernel) statt `uname -r`/`ls /usr/lib/modules`:
+# weiter oben steht ein uname-Wrapper, und bei BUILD_KVER != INSTALL_KVER gibt
+# es ein zweites (Stub-)Verzeichnis unter /lib/modules.
+#
+# Host danach EINMALIG (sonst bleibt das Deployment "derived"):
+#   sudo rpm-ostree initramfs --disable && systemctl reboot
+# Verifikation: grep DynamicPower /proc/driver/nvidia/params  -> 2
+#   sudo lsinitrd /usr/lib/modules/$(uname -r)/initramfs.img | grep nvidia-pm
+
+INITRAMFS_IMG="/usr/lib/modules/${INSTALL_KVER}/initramfs.img"
+if [ ! -f "/usr/lib/modules/${INSTALL_KVER}/vmlinuz" ]; then
+    echo "FATAL: /usr/lib/modules/${INSTALL_KVER}/vmlinuz fehlt — INSTALL_KVER falsch?" >&2
+    ls -la /usr/lib/modules/ >&2
+    exit 1
+fi
+
+echo "=== Regenerating initramfs for ${INSTALL_KVER} ==="
+install -d -m 1777 /var/tmp   # dracut-Arbeitsverzeichnis (TMPDIR-Default)
+# /root ist im bootc-Image ein Symlink auf var/roothome, das erst beim ersten
+# Boot entsteht. dracut nimmt /root als Standardverzeichnis mit und meldet im
+# Container sonst "dracut-install: ERROR: installing '/root'" (nicht fatal, die
+# ublue-Base-initramfs hat deshalb auch kein /root). Ziel nur für den
+# dracut-Lauf anlegen, damit das Ergebnis dem auf dem Host regenerierten Stand
+# entspricht und das Build-Log keine Scheinfehler enthält.
+ROOTHOME_CREATED=0
+if [ ! -e /var/roothome ]; then
+    install -d -m 0700 /var/roothome
+    ROOTHOME_CREATED=1
+fi
+export DRACUT_NO_XATTR=1
+/usr/bin/dracut --no-hostonly --kver "${INSTALL_KVER}" --reproducible -v \
+    --add ostree -f "${INITRAMFS_IMG}"
+chmod 0600 "${INITRAMFS_IMG}"
+if [ "${ROOTHOME_CREATED}" = 1 ]; then
+    rmdir /var/roothome
+fi
+
+# Build hart abbrechen, wenn die Power-Management-Option nicht drin ist — sonst
+# läuft die dGPU nach dem Update still ohne D3cold (Default-Verhalten des Treibers).
+INITRAMFS_LIST="$(mktemp)"
+lsinitrd "${INITRAMFS_IMG}" > "${INITRAMFS_LIST}"
+for needle in "etc/modprobe.d/nvidia-pm.conf" "nvidia.ko"; do
+    if ! grep -q "${needle}" "${INITRAMFS_LIST}"; then
+        echo "FATAL: '${needle}' fehlt in ${INITRAMFS_IMG}" >&2
+        head -40 "${INITRAMFS_LIST}" >&2
+        exit 1
+    fi
+done
+rm -f "${INITRAMFS_LIST}"
+echo "initramfs OK: $(du -h "${INITRAMFS_IMG}" | cut -f1), enthält nvidia-pm.conf + nvidia.ko"
