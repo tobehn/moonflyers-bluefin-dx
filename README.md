@@ -53,9 +53,15 @@ Custom patches gegen Upstream-Sources liegen in [`build_files/patches/`](build_f
 
 ## Secure Boot
 
-**Aktuell: deaktiviert.** Die selbst-gebauten Tuxedo-Module sind nicht signiert, der Kernel lehnt sie sonst mit „Key was rejected by service" ab.
+**Aktiv.** Die selbst-gebauten Tuxedo-Module werden im Build mit einem eigenen MOK signiert (`CN=moonflyers-bluefin-dx module signing`): Private-Key als GitHub-Secret, per `--mount=type=secret,id=mok-key` in den Build-Step gereicht; das Public-Cert liegt im Image unter `/etc/pki/moonflyers-MOK.der`.
 
-Modul-Signing ist geplant (X.509-Keypair, Public-Cert im Image, Private-Key als GitHub-Secret, `--mount=type=secret` im Build-Step, MOK-Enrollment via `mokutil --import`). Danach kann Secure Boot wieder aktiviert werden.
+Einmaliges Enrollment auf neuer Hardware (danach Reboot, MOK-Manager bestätigen):
+
+```bash
+sudo mokutil --import /etc/pki/moonflyers-MOK.der
+```
+
+Prüfen: `mokutil --sb-state` → `SecureBoot enabled`, `modinfo -F signer tuxedo_io` → `moonflyers-bluefin-dx module signing`.
 
 ## Image signing (cosign)
 
