@@ -34,6 +34,11 @@ COPY battery-cycle-fix.service /etc/systemd/system/battery-cycle-fix.service
 COPY vitals-cycle-patch /usr/libexec/vitals-cycle-patch
 COPY vitals-cycle-patch.service /usr/lib/systemd/user/vitals-cycle-patch.service
 
+# Starship-Prompt: Image-Default (voller Pfad statt Repo-Ordnername).
+# Eigene ~/.config/starship.toml hat Vorrang — siehe moonflyers-starship.sh.
+COPY starship.toml /usr/share/moonflyers/starship.toml
+COPY moonflyers-starship.sh /etc/profile.d/89-moonflyers-starship.sh
+
 # Public MOK (X.509 DER) für Modul-Signing-Verifikation und User-Enrollment.
 # Public only — der private Key kommt zur Build-Zeit per --mount=type=secret rein.
 COPY MOK.der /etc/pki/moonflyers-MOK.der

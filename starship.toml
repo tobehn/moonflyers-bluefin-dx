@@ -1,0 +1,9 @@
+# Image-Default für den Starship-Prompt — https://starship.rs/config/
+# Wird über /etc/profile.d/89-moonflyers-starship.sh aktiv, solange der User
+# keine eigene ~/.config/starship.toml hat (die hat immer Vorrang).
+
+[directory]
+truncate_to_repo = false     # auch in Git-Repos den vollen Pfad zeigen
+truncation_length = 0        # 0 = nie kürzen
+truncation_symbol = "…/"     # Markierung, falls doch gekürzt wird
+home_symbol = "~"

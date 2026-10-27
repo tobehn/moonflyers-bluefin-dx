@@ -18,6 +18,7 @@ Personal Bluefin-DX Custom-Image für [moonflyer](https://github.com/tobehn) —
 | **spacenavd** | 3D-Maus-Support (SpaceMouse). |
 | **rpiboot** (from source) | Raspberry Pi USB Boot Tool. |
 | **Utilities** | tmux, screen. |
+| **Starship-Prompt-Default** | Voller Pfad im Prompt statt nur Repo-Ordnername (`/usr/share/moonflyers/starship.toml`). Greift nur ohne eigene `~/.config/starship.toml`. |
 
 ## How to rebase
 
